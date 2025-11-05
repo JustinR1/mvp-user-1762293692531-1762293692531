@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   Switch,
   useColorScheme,
   Appearance,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
@@ -19,7 +20,7 @@ import Input from './components/Input';
 import Button from './components/Button';
 import Toast from './components/Toast';
 
-type Tab = 'workouts' | 'schedule' | 'profile';
+type Tab = 'workouts' | 'schedule' | 'stats' | 'profile';
 
 interface Workout {
   id: number;
@@ -35,6 +36,15 @@ interface ScheduledWorkout {
   day: string;
   time: string;
   emoji: string;
+}
+
+interface HealthStats {
+  steps: number;
+  distance: number;
+  heartRate: number;
+  activeMinutes: number;
+  caloriesBurned: number;
+  sleepHours: number;
 }
 
 export default function App() {
@@ -54,6 +64,15 @@ export default function App() {
     { id: 3, workoutName: 'Weight Training', day: 'Friday', time: '05:30 PM', emoji: '💪' },
   ]);
 
+  const [healthStats, setHealthStats] = useState<HealthStats>({
+    steps: 8542,
+    distance: 6.2,
+    heartRate: 72,
+    activeMinutes: 45,
+    caloriesBurned: 420,
+    sleepHours: 7.5,
+  });
+
   const [showAddWorkoutModal, setShowAddWorkoutModal] = useState(false);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [newWorkoutName, setNewWorkoutName] = useState('');
@@ -63,6 +82,7 @@ export default function App() {
   const [scheduleDay, setScheduleDay] = useState('');
   const [scheduleTime, setScheduleTime] = useState('');
   const [toast, setToast] = useState({ visible: false, message: '', type: 'info' as const });
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const totalCalories = workouts.reduce((sum, w) => sum + w.calories, 0);
   const totalMinutes = workouts.reduce((sum, w) => sum + w.duration, 0);
@@ -72,6 +92,18 @@ export default function App() {
   const textColor = isDark ? '#FFFFFF' : '#1C1C1E';
   const secondaryTextColor = '#8E8E93';
   const borderColor = isDark ? '#38383A' : '#E5E5EA';
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setHealthStats(prev => ({
+        ...prev,
+        steps: prev.steps + Math.floor(Math.random() * 50),
+        heartRate: 68 + Math.floor(Math.random() * 10),
+      }));
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   const handleTabChange = (tab: Tab) => {
     Haptics.selectionAsync();
@@ -131,6 +163,24 @@ export default function App() {
     setScheduleDay('');
     setScheduleTime('');
     setToast({ visible: true, message: 'Workout scheduled successfully!', type: 'success' });
+  };
+
+  const handleRefreshStats = () => {
+    setIsRefreshing(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    
+    setTimeout(() => {
+      setHealthStats({
+        steps: 8542 + Math.floor(Math.random() * 1000),
+        distance: 6.2 + Math.random() * 2,
+        heartRate: 68 + Math.floor(Math.random() * 15),
+        activeMinutes: 45 + Math.floor(Math.random() * 30),
+        caloriesBurned: 420 + Math.floor(Math.random() * 200),
+        sleepHours: 7 + Math.random() * 2,
+      });
+      setIsRefreshing(false);
+      setToast({ visible: true, message: 'Health data synced!', type: 'success' });
+    }, 1500);
   };
 
   const renderWorkoutsTab = () => (
@@ -235,6 +285,114 @@ export default function App() {
     </ScrollView>
   );
 
+  const renderStatsTab = () => (
+    <ScrollView style={styles.content}>
+      <View style={[styles.healthKitHeader, { backgroundColor: surfaceColor, borderColor }]}>
+        <View style={styles.healthKitHeaderContent}>
+          <View>
+            <Text style={[styles.healthKitTitle, { color: textColor }]}>Health Data</Text>
+            <Text style={styles.healthKitSubtitle}>Synced with HealthKit</Text>
+          </View>
+          <TouchableOpacity
+            style={[styles.refreshButton, { backgroundColor: isDark ? '#2C2C2E' : '#F2F2F7' }]}
+            onPress={handleRefreshStats}
+            disabled={isRefreshing}
+          >
+            <Ionicons
+              name="refresh"
+              size={20}
+              color={isDark ? '#0A84FF' : '#007AFF'}
+              style={isRefreshing ? styles.refreshing : undefined}
+            />
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      <Text style={[styles.sectionTitle, { color: textColor }]}>Today's Activity</Text>
+
+      <View style={[styles.largeStatCard, { backgroundColor: surfaceColor, borderColor }]}>
+        <View style={styles.largeStatHeader}>
+          <View style={[styles.iconContainer, { backgroundColor: '#FF3B30' }]}>
+            <Ionicons name="walk" size={28} color="#FFFFFF" />
+          </View>
+          <View style={styles.largeStatInfo}>
+            <Text style={[styles.largeStatValue, { color: textColor }]}>{healthStats.steps.toLocaleString()}</Text>
+            <Text style={styles.largeStatLabel}>Steps</Text>
+          </View>
+        </View>
+        <View style={styles.progressBarContainer}>
+          <View style={[styles.progressBar, { width: `${(healthStats.steps / 10000) * 100}%` }]} />
+        </View>
+        <Text style={styles.progressText}>Goal: 10,000 steps</Text>
+      </View>
+
+      <View style={styles.statsGrid}>
+        <View style={[styles.gridStatCard, { backgroundColor: surfaceColor, borderColor }]}>
+          <View style={[styles.iconContainer, { backgroundColor: '#34C759' }]}>
+            <Ionicons name="navigate" size={24} color="#FFFFFF" />
+          </View>
+          <Text style={[styles.gridStatValue, { color: textColor }]}>{healthStats.distance.toFixed(1)}</Text>
+          <Text style={styles.gridStatLabel}>km</Text>
+          <Text style={styles.gridStatSubLabel}>Distance</Text>
+        </View>
+
+        <View style={[styles.gridStatCard, { backgroundColor: surfaceColor, borderColor }]}>
+          <View style={[styles.iconContainer, { backgroundColor: '#FF3B30' }]}>
+            <Ionicons name="heart" size={24} color="#FFFFFF" />
+          </View>
+          <Text style={[styles.gridStatValue, { color: textColor }]}>{healthStats.heartRate}</Text>
+          <Text style={styles.gridStatLabel}>bpm</Text>
+          <Text style={styles.gridStatSubLabel}>Heart Rate</Text>
+        </View>
+      </View>
+
+      <View style={styles.statsGrid}>
+        <View style={[styles.gridStatCard, { backgroundColor: surfaceColor, borderColor }]}>
+          <View style={[styles.iconContainer, { backgroundColor: '#007AFF' }]}>
+            <Ionicons name="fitness" size={24} color="#FFFFFF" />
+          </View>
+          <Text style={[styles.gridStatValue, { color: textColor }]}>{healthStats.activeMinutes}</Text>
+          <Text style={styles.gridStatLabel}>min</Text>
+          <Text style={styles.gridStatSubLabel}>Active</Text>
+        </View>
+
+        <View style={[styles.gridStatCard, { backgroundColor: surfaceColor, borderColor }]}>
+          <View style={[styles.iconContainer, { backgroundColor: '#FF9500' }]}>
+            <Ionicons name="flame" size={24} color="#FFFFFF" />
+          </View>
+          <Text style={[styles.gridStatValue, { color: textColor }]}>{healthStats.caloriesBurned}</Text>
+          <Text style={styles.gridStatLabel}>kcal</Text>
+          <Text style={styles.gridStatSubLabel}>Burned</Text>
+        </View>
+      </View>
+
+      <Text style={[styles.sectionTitle, { color: textColor, marginTop: 24 }]}>Recovery</Text>
+
+      <View style={[styles.largeStatCard, { backgroundColor: surfaceColor, borderColor }]}>
+        <View style={styles.largeStatHeader}>
+          <View style={[styles.iconContainer, { backgroundColor: '#5856D6' }]}>
+            <Ionicons name="moon" size={28} color="#FFFFFF" />
+          </View>
+          <View style={styles.largeStatInfo}>
+            <Text style={[styles.largeStatValue, { color: textColor }]}>{healthStats.sleepHours.toFixed(1)}</Text>
+            <Text style={styles.largeStatLabel}>Hours of Sleep</Text>
+          </View>
+        </View>
+        <View style={styles.progressBarContainer}>
+          <View style={[styles.progressBar, { width: `${(healthStats.sleepHours / 8) * 100}%`, backgroundColor: '#5856D6' }]} />
+        </View>
+        <Text style={styles.progressText}>Goal: 8 hours</Text>
+      </View>
+
+      <View style={[styles.infoCard, { backgroundColor: isDark ? '#2C2C2E' : '#F2F2F7', borderColor }]}>
+        <Ionicons name="information-circle" size={24} color={isDark ? '#0A84FF' : '#007AFF'} />
+        <Text style={[styles.infoText, { color: textColor }]}>
+          Health data is simulated for demo purposes. Connect your Apple Health or Google Fit account to see real data.
+        </Text>
+      </View>
+    </ScrollView>
+  );
+
   const renderProfileTab = () => (
     <ScrollView style={styles.content}>
       <View style={[styles.profileCard, { backgroundColor: surfaceColor, borderColor }]}>
@@ -302,6 +460,7 @@ export default function App() {
 
       {activeTab === 'workouts' && renderWorkoutsTab()}
       {activeTab === 'schedule' && renderScheduleTab()}
+      {activeTab === 'stats' && renderStatsTab()}
       {activeTab === 'profile' && renderProfileTab()}
 
       <View style={[styles.tabBar, { backgroundColor: surfaceColor, borderTopColor: borderColor }]}>
@@ -327,6 +486,18 @@ export default function App() {
             color={activeTab === 'schedule' ? '#34C759' : secondaryTextColor}
           />
           <Text style={[styles.tabLabel, { color: activeTab === 'schedule' ? '#34C759' : secondaryTextColor }]}>Schedule</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.tabItem}
+          onPress={() => handleTabChange('stats')}
+        >
+          <Ionicons
+            name={activeTab === 'stats' ? 'analytics' : 'analytics-outline'}
+            size={24}
+            color={activeTab === 'stats' ? '#34C759' : secondaryTextColor}
+          />
+          <Text style={[styles.tabLabel, { color: activeTab === 'stats' ? '#34C759' : secondaryTextColor }]}>Stats</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -565,6 +736,139 @@ const styles = StyleSheet.create({
   scheduleDetailText: {
     fontSize: 13,
     color: '#8E8E93',
+  },
+  healthKitHeader: {
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+    borderWidth: 1,
+  },
+  healthKitHeaderContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  healthKitTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  healthKitSubtitle: {
+    fontSize: 14,
+    color: '#8E8E93',
+  },
+  refreshButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  refreshing: {
+    transform: [{ rotate: '180deg' }],
+  },
+  largeStatCard: {
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+    borderWidth: 1,
+  },
+  largeStatHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  iconContainer: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  largeStatInfo: {
+    flex: 1,
+  },
+  largeStatValue: {
+    fontSize: 32,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  largeStatLabel: {
+    fontSize: 16,
+    color: '#8E8E93',
+  },
+  progressBarContainer: {
+    height: 8,
+    backgroundColor: '#E5E5EA',
+    borderRadius: 4,
+    overflow: 'hidden',
+    marginBottom: 8,
+  },
+  progressBar: {
+    height: '100%',
+    backgroundColor: '#FF3B30',
+    borderRadius: 4,
+  },
+  progressText: {
+    fontSize: 13,
+    color: '#8E8E93',
+  },
+  statsGrid: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 16,
+  },
+  gridStatCard: {
+    flex: 1,
+    borderRadius: 16,
+    padding: 16,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+    borderWidth: 1,
+  },
+  gridStatValue: {
+    fontSize: 28,
+    fontWeight: '700',
+    marginTop: 12,
+  },
+  gridStatLabel: {
+    fontSize: 14,
+    color: '#8E8E93',
+    marginTop: 2,
+  },
+  gridStatSubLabel: {
+    fontSize: 12,
+    color: '#8E8E93',
+    marginTop: 4,
+  },
+  infoCard: {
+    flexDirection: 'row',
+    borderRadius: 12,
+    padding: 16,
+    marginTop: 16,
+    marginBottom: 24,
+    borderWidth: 1,
+  },
+  infoText: {
+    flex: 1,
+    fontSize: 14,
+    marginLeft: 12,
+    lineHeight: 20,
   },
   profileCard: {
     borderRadius: 16,
